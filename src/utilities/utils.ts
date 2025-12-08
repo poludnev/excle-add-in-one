@@ -8,6 +8,11 @@ export async function createSheetWithName(name: string) {
   });
 }
 
+export function setCenter(range: Excel.Range) {
+  range.format.verticalAlignment = Excel.VerticalAlignment.center;
+  range.format.horizontalAlignment = Excel.HorizontalAlignment.center;
+}
+
 export function setOuterBorders(range: Excel.Range) {
   const topItem = range.format.borders.getItemAt(0);
   topItem.style = "Continuous";
