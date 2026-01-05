@@ -1,8 +1,28 @@
-export async function createSheetWithName(name: string) {
+export async function createSheetWithName(sheetName: string) {
   return Excel.run(async (context: Excel.RequestContext) => {
     const workbook: Excel.Workbook = context.workbook;
 
-    const createdWorksheet: Excel.Worksheet = workbook.worksheets.add(name);
+    const sheets = context.workbook.worksheets;
+    const sheet = sheets.getItemOrNullObject(sheetName);
+    sheet.load("isNullObject");
+    const countResult = sheets.getCount(); // ClientResult<number>
+    await context.sync();
+
+    if (!sheet.isNullObject) {
+      if (countResult.value > 1) {
+        sheet.delete();
+        await context.sync();
+        console.log(`Deleted worksheet "${sheetName}".`);
+      } else {
+        console.log(`Cannot delete "${sheetName}" because it's the only worksheet.`);
+      }
+    } else {
+      console.log(`Worksheet "${sheetName}" does not exist.`);
+    }
+
+    const createdWorksheet: Excel.Worksheet = workbook.worksheets.add(sheetName);
+
+    await context.sync();
 
     return { success: true, sheetName: name, worksheet: createdWorksheet };
   });
@@ -13,24 +33,33 @@ export function setCenter(range: Excel.Range) {
   range.format.horizontalAlignment = Excel.HorizontalAlignment.center;
 }
 
-export function setOuterBorders(range: Excel.Range) {
+export const setOuterBorders = (range: Excel.Range) =>
+  setOuterBordersWithWeight(range, Excel.BorderWeight.thin);
+
+export const setThickOuterBorders = (range: Excel.Range) =>
+  setOuterBordersWithWeight(range, Excel.BorderWeight.thick);
+export function setOuterBordersWithWeight(
+  range: Excel.Range,
+  weight: Excel.BorderWeight = Excel.BorderWeight.thin
+) {
   const topItem = range.format.borders.getItemAt(0);
   topItem.style = "Continuous";
   topItem.color = "000000";
-  topItem.weight = "Thin";
+  topItem.weight = weight;
   const bottomItem = range.format.borders.getItemAt(1);
   bottomItem.style = "Continuous";
   bottomItem.color = "000000";
-  bottomItem.weight = "Thin";
+  bottomItem.weight = weight;
   const leftItem = range.format.borders.getItemAt(2);
   leftItem.style = "Continuous";
   leftItem.color = "000000";
-  leftItem.weight = "Thin";
+  leftItem.weight = weight;
   const rightItem = range.format.borders.getItemAt(3);
   rightItem.style = "Continuous";
   rightItem.color = "000000";
-  rightItem.weight = "Thin";
+  rightItem.weight = weight;
 }
+
 export function setAllBorders(range: Excel.Range) {
   const topItem = range.format.borders.getItemAt(0);
   topItem.style = "Continuous";
