@@ -55,13 +55,13 @@ const App: React.FC<AppProps> = () =>
         {/* <Header logo="assets/logo-filled.png" title={props.title} message="Welcome" /> */}
         {/* <HeroList message="Discover what this add-in can do for you today!" items={listItems} /> */}
         {/* <TextInsertion insertText={insertText} /> */}
+        <InsertCMR />
         <InsertData />
         <InsertSummary />
         <InsertInstruction />
         <InsertRazbivka />
         <InsertPacking />
         <InsertTransit />
-        <InsertCMR />
       </div>
     );
   };

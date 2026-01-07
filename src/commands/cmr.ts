@@ -84,7 +84,7 @@ const cmrDataFields: TCMRDataFileds = [
 ];
 interface ICMRdata {
   number: string;
-  invoices: { number: string; date: string }[];
+  invoices: { number: string; date: string; consignee: string; grossWeightKg: number }[];
   grossWeightKg: number;
 }
 
@@ -110,6 +110,7 @@ const readInstructionsSheetData = async (
   await context.sync();
 
   const cmrDataList: ICMRdata[] = dynamicRange.values.reduce((acc, row) => {
+    // console.count(JSON.stringify(acc));
     const cmrNumber = row[21];
     if (!cmrNumber) throw Error("CMR number is missing in instruction sheet data");
 
@@ -119,17 +120,45 @@ const readInstructionsSheetData = async (
     if (!invoiceDate) throw Error("Invoice date is missing in instruction sheet data");
 
     const grossWeightKg = row[11];
+    const consignee = row[1];
     const accItem = acc.find((item) => item.number === cmrNumber);
+    // console.log("accItem", accItem);
+
     if (accItem) {
       const accInvoice = accItem.invoices.find((inv) => inv.number === invoiceNumber);
+      // console.log("accInvoice", accInvoice);
       if (!accInvoice) {
-        accItem.invoices.push({ number: invoiceNumber, date: invoiceDate });
+        console.log("Adding new invoice to CMR", cmrNumber, invoiceNumber);
+        accItem.invoices.push({
+          number: invoiceNumber,
+          date: invoiceDate,
+          consignee,
+          grossWeightKg: Number(grossWeightKg),
+        });
+      } else {
+        if (accInvoice.consignee !== consignee) {
+          console.error(
+            `Duplicate invoice number ${invoiceNumber} with different consignee found in CMR ${cmrNumber} ${JSON.stringify(accInvoice)} vs ${consignee}`
+          );
+          throw Error(
+            `Duplicate invoice number ${invoiceNumber} with different consignee found in CMR ${cmrNumber}`
+          );
+        }
+        accInvoice.grossWeightKg += Number(grossWeightKg);
       }
+
       accItem.grossWeightKg += Number(grossWeightKg);
     } else {
       acc.push({
         number: cmrNumber,
-        invoices: [{ number: invoiceNumber, date: invoiceDate }],
+        invoices: [
+          {
+            number: invoiceNumber,
+            date: invoiceDate,
+            consignee,
+            grossWeightKg: Number(grossWeightKg),
+          },
+        ],
         grossWeightKg: Number(grossWeightKg),
       });
     }
@@ -1332,78 +1361,125 @@ const fillCMRDataBySheetNames = async (
   senderSignatureRange.values = [[dataObj["sender_stamp"]]];
 };
 
-export const fillCMR_data_values = async () => {
+export const isCMRDataSheetExists = async () =>
   Excel.run(async (context) => {
-    const {
-      workbook: { worksheets },
-    } = context;
+    try {
+      const {
+        workbook: { worksheets },
+      } = context;
+      worksheets.load("items/name");
+      await context.sync();
+      const cmrDataSheetExists = worksheets.items.some((sheet) =>
+        sheet.name.startsWith("cmr_data_")
+      );
+      if (cmrDataSheetExists) return true;
+      return false;
+    } catch (error) {
+      console.error("Error in checkCMRDataSheetExists:", error);
+      return { success: false, error: error as Error };
+    }
+  });
 
-    // get workbook's worksheets
-    worksheets.load("items/name");
-    await context.sync();
+export const fillCMR_data_values = async (): Promise<{ success: boolean; error: Error | null }> =>
+  Excel.run(async (context) => {
+    try {
+      const {
+        workbook: { worksheets },
+      } = context;
 
-    console.log("Worksheets loaded:", worksheets.items);
+      // get workbook's worksheets
+      worksheets.load("items/name");
+      await context.sync();
 
-    // delete existing CMR sheets
-    worksheets.items
-      .filter((s) => s.name.startsWith("cmr_"))
-      .forEach((sheet) => {
-        console.log("Deleting existing CMR sheet:", sheet.name);
-        sheet.delete();
+      console.log("Worksheets loaded:", worksheets.items);
+
+      // delete existing CMR sheets
+      worksheets.items
+        .filter((s) => s.name.startsWith("cmr_") || s.name === "instruction_pivot")
+        .forEach((sheet) => {
+          console.log("Deleting existing CMR sheet:", sheet.name);
+          sheet.delete();
+        });
+      await context.sync();
+
+      // check if 'instruction' sheet exists
+      if (!worksheets.items.some((sheet) => sheet.name === "instruction"))
+        throw new Error("Source sheet 'instruction' not found.");
+
+      const sourceSheet: Excel.Worksheet = worksheets.getItem("instruction");
+      const cmrData: ICMRdata[] = await readInstructionsSheetData(sourceSheet, context);
+      console.log("CMR DATA FROM FUNCTION:", cmrData);
+
+      await createSheetWithName("instruction_pivot");
+      if (!worksheets.items.some((sheet) => sheet.name === "instruction_pivot"))
+        throw new Error("Source sheet 'instruction_pivot' not found.");
+
+      const pivotData: [string, string, string, string, string | number][] = [
+        ["", "", "", "", ""],
+        ["CMR Number", "Invoice Number", "Invoice Date", "Consignee", "Gross Weight (KG)"],
+      ];
+
+      for (let i = 0; i < cmrData.length; i += 1) {
+        const cmr = cmrData[i];
+        cmr.invoices.forEach((inv) => {
+          pivotData.push([cmr.number, inv.number, inv.date, inv.consignee, inv.grossWeightKg]);
+        });
+      }
+
+      pivotData[0][4] = `=SUM(E2:E${pivotData.length + 2})`;
+
+      const pivotSheet: Excel.Worksheet = worksheets.getItem("instruction_pivot");
+      const pivotRange = pivotSheet.getRangeByIndexes(0, 0, pivotData.length, 5);
+      pivotRange.values = pivotData;
+      pivotRange.format.autofitColumns();
+
+      // create CMR data sheets and fill them with data
+      cmrData.forEach(async (cmr) => {
+        const cmrSheetName = "cmr_data_" + cmr.number;
+        // crate CMR sheet
+        await createSheetWithName(cmrSheetName);
+
+        const cmrSheet: Excel.Worksheet = worksheets.getItem(cmrSheetName);
+
+        // fill CMR data constants
+        await fillCMRDataConstants(cmrSheet, context);
+
+        // fill CMR data values
+        // Fill CMR number
+        const cmrNumberRange = cmrSheet.getRange("C1:C1");
+        cmrNumberRange.values = [[cmr.number]];
+
+        // Fill attachment (invoice numbers and dates)
+        const invoiceNames =
+          "Invoice № " + cmr.invoices.map((inv) => inv.number + " dt. " + inv.date).join(", ");
+        console.log("Filling CMR sheet:", cmrSheetName, " with invoices:", invoiceNames);
+
+        const cmrAttachmentRange = cmrSheet.getRange("C12:C12");
+
+        cmrAttachmentRange.values = [[invoiceNames]];
+
+        // Fill gross weight
+        const grossWeightRange = cmrSheet.getRange("C18:C18");
+        grossWeightRange.values = [[`${cmr.grossWeightKg.toFixed(2)} KG`]];
+        const grossTotalWeightRange = cmrSheet.getRange("C19:C19");
+        grossTotalWeightRange.values = [[`${cmr.grossWeightKg.toFixed(2)} KG`]];
+
+        // Autofit data column
+        const dataRange = cmrSheet.getRange("B:B");
+        dataRange.format.autofitColumns();
+
+        cmrSheet.activate();
+
+        await context.sync();
       });
-    await context.sync();
-
-    // check if 'instruction' sheet exists
-    if (!worksheets.items.some((sheet) => sheet.name === "instruction"))
-      throw new Error("Source sheet 'instruction' not found.");
-
-    const sourceSheet: Excel.Worksheet = worksheets.getItem("instruction");
-    const cmrData: ICMRdata[] = await readInstructionsSheetData(sourceSheet, context);
-    console.log("CMR DATA FROM FUNCTION:", cmrData);
-
-    // create CMR data sheets and fill them with data
-    cmrData.forEach(async (cmr) => {
-      const cmrSheetName = "cmr_data_" + cmr.number;
-      // crate CMR sheet
-      await createSheetWithName(cmrSheetName);
-
-      const cmrSheet: Excel.Worksheet = worksheets.getItem(cmrSheetName);
-
-      // fill CMR data constants
-      await fillCMRDataConstants(cmrSheet, context);
-
-      // fill CMR data values
-      // Fill CMR number
-      const cmrNumberRange = cmrSheet.getRange("C1:C1");
-      cmrNumberRange.values = [[cmr.number]];
-
-      // Fill attachment (invoice numbers and dates)
-      const invoiceNames =
-        "Invoice № " + cmr.invoices.map((inv) => inv.number + " dated " + inv.date).join(", ");
-      console.log("Filling CMR sheet:", cmrSheetName, " with invoices:", invoiceNames);
-
-      const cmrAttachmentRange = cmrSheet.getRange("C12:C12");
-
-      cmrAttachmentRange.values = [[invoiceNames]];
-
-      // Fill gross weight
-      const grossWeightRange = cmrSheet.getRange("C18:C18");
-      grossWeightRange.values = [[`${cmr.grossWeightKg.toFixed(2)} KG`]];
-      const grossTotalWeightRange = cmrSheet.getRange("C19:C19");
-      grossTotalWeightRange.values = [[`${cmr.grossWeightKg.toFixed(2)} KG`]];
-
-      // Autofit data column
-      const dataRange = cmrSheet.getRange("B:B");
-      dataRange.format.autofitColumns();
-
-      cmrSheet.activate();
 
       await context.sync();
-    });
-
-    await context.sync();
+      return { success: true, error: null };
+    } catch (error) {
+      console.error("Error in makeCMRs:", error);
+      return { success: false, error: error as Error };
+    }
   });
-};
 
 export const makeCMRs = async (): Promise<{ success: boolean; error: Error | null }> =>
   Excel.run(async (context) => {
