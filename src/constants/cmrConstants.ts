@@ -20,7 +20,7 @@ const places_of_delivery: { [key: string]: string } = {
 
 const senders_instructions: { [key: string]: string } = {
   AKULOVO:
-    'T/P "Akulovskiy" Code 10013010 SVH OOO "Crocus Interservice" 143002 Moskovskaya Obl, Odintsovskiy r-n, S. Akulovo, Ul. Novaya, D. 137      Lic. 10013/200111/10118/11 from 10.10.2024',
+    'T/P "Akulovskiy" Code 10013010 SVH OOO "Crocus Interservice" 143002 Moskovskaya Obl, Odintsovskiy r-n, S. Akulovo, Ul. Novaya, D. 137      Lic. 10132/200111/10118/12 from 01.07.2025',
 };
 
 export { shippers, consignees, places_of_delivery, senders_instructions };
