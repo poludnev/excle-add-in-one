@@ -1,3 +1,22 @@
+export const isSheetByNameExists = async (sheetName: string) =>
+  Excel.run(async (context) => {
+    try {
+      const {
+        workbook: { worksheets },
+      } = context;
+      worksheets.load("items/name");
+      await context.sync();
+      const cmrDataSheetExists = worksheets.items.some(
+        (sheet) => sheet.name.toString() === sheetName
+      );
+      if (cmrDataSheetExists) return true;
+      return false;
+    } catch (error) {
+      console.error("Error in checkCMRDataSheetExists:", error);
+      return { success: false, error: error as Error };
+    }
+  });
+
 export async function createSheetWithName(sheetName: string) {
   return Excel.run(async (context: Excel.RequestContext) => {
     const workbook: Excel.Workbook = context.workbook;
@@ -24,7 +43,7 @@ export async function createSheetWithName(sheetName: string) {
 
     await context.sync();
 
-    return { success: true, sheetName: name, worksheet: createdWorksheet };
+    return { success: true, sheetName: name, worksheet: createdWorksheet, context };
   });
 }
 

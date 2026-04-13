@@ -12,7 +12,7 @@ import { makeStyles } from "@fluentui/react-components";
 
 const useStyles = makeStyles({
   root: {
-    minHeight: "100vh",
+    // minHeight: "100vh",
   },
   cmr: {
     position: "relative",
@@ -21,11 +21,12 @@ const useStyles = makeStyles({
     paddingRight: "20px",
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    marginBottom: "20px",
+    gap: "5px",
+    // marginBottom: "10px",
   },
   cmrTitle: {
     margin: "0px",
+    // backgroundColor: "#4CAF50",
   },
   cmrButton: {
     padding: "5px",
@@ -149,7 +150,7 @@ export const InsertCMR = () => {
       const result = await makeCMRs();
       if (result.success === false) {
         console.error("Error making CMRs in front run:", result);
-        setError(result.error.message);
+        setError(result?.error?.message || "Unknown error");
         // throw Error("Error making CMRs in front run");
         return;
       }

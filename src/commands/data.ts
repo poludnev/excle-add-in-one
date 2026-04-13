@@ -59,15 +59,49 @@ const summaryHeadings: SummaryHeadings = [
 
 export async function createSheetWithName(name: string) {
   return Excel.run(async (context: Excel.RequestContext) => {
-    const workbook: Excel.Workbook = context.workbook;
+    try {
+      const workbook: Excel.Workbook = context.workbook;
+      console.log("Creating sheet with name:1", name);
 
-    const createdWorksheet: Excel.Worksheet = workbook.worksheets.add(name);
+      const createdWorksheet: Excel.Worksheet = workbook.worksheets.add(name);
+      console.log("Creating sheet with name:2 ", name);
 
-    return { success: true, sheetName: name, worksheet: createdWorksheet };
+      createdWorksheet.activate();
+
+      console.log("Creating sheet with name:3 ", name);
+      await context.sync();
+      console.log("Creating sheet with name:4 ", name);
+
+      return { success: true, sheetName: name, worksheet: createdWorksheet };
+    } catch (error) {
+      if (
+        error instanceof OfficeExtension.Error &&
+        error.code === Excel.ErrorCodes.itemAlreadyExists
+      ) {
+        if (error.code === Excel.ErrorCodes.itemAlreadyExists) {
+          console.warn(`Sheet with name "${name}" already exists. Activating existing sheet.`);
+          const workbook: Excel.Workbook = context.workbook;
+          const existingWorksheet: Excel.Worksheet = workbook.worksheets.getItem(name);
+          existingWorksheet.activate();
+          await context.sync();
+          return {
+            success: false,
+            error: new Error(`Sheet with name "${name}" already exists.`),
+            sheetName: name,
+            worksheet: existingWorksheet,
+          };
+        }
+      }
+      console.error("Error creating sheet with name:", name, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error("Unknown error"),
+      };
+    }
   });
 }
 
-export async function fillSummaryHeading() {
+export async function fillDataHeading() {
   console.log("fill header");
   await Excel.run(async (context: Excel.RequestContext) => {
     const startCell = "B2";

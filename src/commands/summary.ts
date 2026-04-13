@@ -97,6 +97,15 @@ export const fillSummaryDefaultValues = async () =>
 
     const worksheet = worksheets.getItem("summary");
 
+    const valuesRange = worksheet.getRange(`A${1}:B${10}`);
+
+    const cf = valuesRange.conditionalFormats.add(Excel.ConditionalFormatType.custom);
+
+    cf.custom.rule.formula = "=ISBLANK($B1)";
+    cf.custom.format.fill.color = "#FFFF00"; // yellow
+
+    await context.sync();
+
     const exportInvoiceRow = summaryHeadings.indexOf("FAKTURA");
     worksheet.getCell(exportInvoiceRow, 1).formulas = [["=data!B3"]];
 
@@ -143,4 +152,5 @@ export const fillSummaryDefaultValues = async () =>
     worksheet.getCell(consigneeNameRow, 1).values = [[consigneeDefaultValues.name]];
     worksheet.getCell(consigneAddressRow, 1).values = [[consigneeDefaultValues.address]];
     worksheet.getCell(consigneeVatRow, 1).values = [[consigneeDefaultValues.vat]];
+    worksheet.getRange().format.autofitColumns();
   });

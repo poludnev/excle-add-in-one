@@ -1,11 +1,13 @@
-import * as React from "react";
+import React from "react";
+import { createSheetWithName } from "../../utilities/utils";
 import { makeStyles } from "@fluentui/react-components";
-
-import { createSheetWithName, fillDataHeading, updateDataFormats } from "../../commands/data";
+import { fillRazbivkaData, fillRazbivkaHeading } from "../../commands/razbivka";
+import { fillPackingData, fillPackingHeading } from "../../commands/packing";
+import { fillTansitData } from "../../commands/transit";
 
 const useStyles = makeStyles({
   data: {
-    backgroundColor: "#ffcaca",
+    backgroundColor: "#d0ffca",
     padding: "10px",
     paddingRight: "20px",
     display: "flex",
@@ -55,47 +57,35 @@ const useStyles = makeStyles({
     cursor: "pointer",
   },
 });
-export const InsertData = () => {
+
+export const InsertShippingPack = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [isBlockingButtons, setIsBlockingButtons] = React.useState(false);
   const styles = useStyles();
 
-  const addSummarySheetHandler = async () => {
-    setIsBlockingButtons(true);
-    try {
-      console.log("addSummarySheetHandler 1");
-      const { success, error } = await createSheetWithName("data");
-      if (!success) {
-        setError(error?.message || "Unknown error");
-        await updateDataFormats();
-        return;
-      }
-      console.log("addSummarySheetHandler 2");
-      await fillDataHeading();
-      await updateDataFormats();
-      console.log("addSummarySheetHandler 3");
-    } catch (error) {
-      console.error("Error in addSummarySheetHandler:", error);
-      setError(error instanceof Error ? error.message : "Unknown error");
-    } finally {
-      setIsBlockingButtons(false);
-    }
+  const addRazbvkaSheetHandler = async () => {
+    const {} = await createSheetWithName("razbivka");
+    await fillRazbivkaHeading();
+    await fillRazbivkaData();
+    const {} = await createSheetWithName("packing");
+    await fillPackingHeading();
+    await fillPackingData();
+    const { worksheet, context } = await createSheetWithName("transit");
+    await fillTansitData();
+    worksheet.activate();
+    await context.sync();
   };
 
-  const updateDataFormatsHandler = async () => {
-    setIsBlockingButtons(true);
-    try {
-      await updateDataFormats();
-    } catch (error) {
-      console.error("Error in updateDataFormatsHandler:", error);
-      setError(error instanceof Error ? error.message : "Unknown error");
-    } finally {
-      setIsBlockingButtons(false);
-    }
-  };
+  // const addRazbivkaHeader = () => {
+  //   fillRazbivkaHeading();
+  // };
+
+  // const fillRazbivkaSheet = () => {
+  //   fillRazbivkaData();
+  // };
   return (
     <div className={styles.data}>
-      <h3 className={styles.title}>Add Data sheet</h3>
+      <h3 className={styles.title}>Add Shipping Docs</h3>
       <details>
         <summary>Instructions</summary>
         <ol>
@@ -119,28 +109,18 @@ export const InsertData = () => {
       )}
       <div className={styles.buttons}>
         <button
-          onClick={addSummarySheetHandler}
+          onClick={addRazbvkaSheetHandler}
           disabled={isBlockingButtons}
           className={styles.addButton}
         >
-          Add data sheet
-        </button>
-        <button
-          onClick={updateDataFormatsHandler}
-          disabled={isBlockingButtons}
-          className={styles.updateButton}
-        >
-          Update formats
+          Add Razbivka, Packing and Transit sheets
         </button>
       </div>
       {/* <div>
-        <button
-          onClick={updateDataFormatsHandler}
-          disabled={isBlockingButtons}
-          className={styles.updateButton}
-        >
-          Update formats
-        </button>
+        <button onClick={addRazbivkaHeader}>Add Razbivka header</button>
+      </div>
+      <div>
+        <button onClick={fillRazbivkaSheet}>Fill Razbivka data</button>
       </div> */}
     </div>
   );

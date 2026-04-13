@@ -6,12 +6,16 @@ import { makeStyles } from "@fluentui/react-components";
 import { Ribbon24Regular, LockOpen24Regular, DesignIdeas24Regular } from "@fluentui/react-icons";
 import { insertText } from "../taskpane";
 import { InsertData } from "./InsertData";
+import { InsertDataDev } from "./InsertDataDev";
 import { InsertInstruction } from "./InsertInstruction";
+import { InsertInstructionDev } from "./InsertInstructionDev";
 import { InsertRazbivka } from "./InsertRazbivka";
 import { InsertPacking } from "./InsertPacking";
 import { InsertTransit } from "./InsertTransit";
 import { InsertSummary } from "./InsertSummary";
+import { InsertSummaryDev } from "./InsertSummaryDev";
 import { InsertCMR } from "./CMR";
+import { InsertShippingPack } from "./InsertShippingPack";
 
 interface AppProps {
   title: string;
@@ -20,6 +24,8 @@ interface AppProps {
 const useStyles = makeStyles({
   root: {
     minHeight: "100vh",
+    minWidth: "270px",
+    backgroundColor: "#f0f0f0",
   },
 });
 
@@ -44,24 +50,34 @@ const App: React.FC<AppProps> = () =>
       },
     ];
 
-    const save = async () => {
-      Excel.run(async (context: Excel.RequestContext) => {
-        context.workbook.save();
-      });
-    };
+    // const save = async () => {
+    //   Excel.run(async (context: Excel.RequestContext) => {
+    //     context.workbook.save();
+    //   });
+    // };
 
     return (
       <div className={styles.root}>
         {/* <Header logo="assets/logo-filled.png" title={props.title} message="Welcome" /> */}
         {/* <HeroList message="Discover what this add-in can do for you today!" items={listItems} /> */}
         {/* <TextInsertion insertText={insertText} /> */}
-        <InsertCMR />
         <InsertData />
-        <InsertSummary />
         <InsertInstruction />
-        <InsertRazbivka />
-        <InsertPacking />
-        <InsertTransit />
+        <InsertSummary />
+        <InsertShippingPack />
+        <InsertCMR />
+
+        <details>
+          <summary>Dev Section</summary>
+          <div>
+            <InsertDataDev />
+            <InsertSummaryDev />
+            <InsertInstructionDev />
+            <InsertRazbivka />
+            <InsertPacking />
+            <InsertTransit />
+          </div>
+        </details>
       </div>
     );
   };
